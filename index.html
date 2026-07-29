@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0d10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="事故照片合成" />
+  <title>車禍當事人照片合成工具</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d10;
+      --panel: #15191f;
+      --panel-2: #1b2028;
+      --line: #2d3440;
+      --text: #f5f7fa;
+      --muted: #aeb7c4;
+      --accent: #4f9cff;
+      --accent-2: #77b4ff;
+      --danger: #ff5f66;
+      --success: #45c78b;
+      --warning: #ffbf47;
+      --radius: 18px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif; font-weight: 700; }
+    body { padding-bottom: calc(18px + var(--safe-bottom)); }
+    button, input, select { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    img { display: block; max-width: 100%; }
+
+    .app { width: min(760px, 100%); margin: 0 auto; min-height: 100vh; }
+    .topbar {
+      position: sticky; top: 0; z-index: 30;
+      padding: calc(12px + var(--safe-top)) 16px 12px;
+      background: rgba(11, 13, 16, .92);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .topbar-row { display: flex; align-items: center; gap: 10px; }
+    .title-wrap { min-width: 0; flex: 1; }
+    .title { font-size: 21px; line-height: 1.2; letter-spacing: .2px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-weight: 650; }
+    .icon-btn {
+      min-width: 44px; height: 44px; border-radius: 14px;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      display: grid; place-items: center; font-size: 20px;
+    }
+
+    main { padding: 16px; }
+    .screen { display: none; animation: fade .18s ease; }
+    .screen.active { display: block; }
+    @keyframes fade { from { opacity: .25; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .hero {
+      border: 1px solid var(--line); background: linear-gradient(145deg, #171b21, #101318);
+      border-radius: 24px; padding: 20px; margin-bottom: 16px;
+    }
+    .hero h2 { margin: 0 0 8px; font-size: 25px; }
+    .hero p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 15px; }
+
+    .section-title { font-size: 16px; color: #d9e0e9; margin: 18px 2px 10px; }
+    .button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn {
+      min-height: 54px; border-radius: 16px; padding: 12px 16px;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      text-align: center; line-height: 1.25;
+    }
+    .btn:active { transform: scale(.985); }
+    .btn.primary { background: var(--accent); color: #071321; border-color: transparent; }
+    .btn.success { background: var(--success); color: #071a11; border-color: transparent; }
+    .btn.warning { background: var(--warning); color: #261700; border-color: transparent; }
+    .btn.danger { background: rgba(255,95,102,.14); color: #ff9ba0; border-color: rgba(255,95,102,.36); }
+    .btn.ghost { background: transparent; }
+    .btn.wide { width: 100%; }
+    .btn.small { min-height: 42px; padding: 9px 12px; border-radius: 13px; font-size: 14px; }
+    .btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .party-list { display: grid; gap: 12px; }
+    .party-card {
+      border: 1px solid var(--line); background: var(--panel); border-radius: 20px; overflow: hidden;
+    }
+    .party-head { padding: 14px 15px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+    .party-badge {
+      min-width: 48px; height: 34px; padding: 0 10px; border-radius: 10px;
+      background: #243246; color: #bcd8ff; display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .party-name { flex: 1; min-width: 0; }
+    .party-name strong { font-size: 17px; }
+    .party-name span { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .party-actions { display: flex; gap: 8px; }
+
+    .thumb-row { display: flex; gap: 9px; overflow-x: auto; padding: 12px 14px 14px; scroll-snap-type: x proximity; }
+    .thumb {
+      position: relative; flex: 0 0 122px; height: 98px; border-radius: 14px; overflow: hidden;
+      background: #0d1014; border: 1px solid #303744; scroll-snap-align: start;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-label {
+      position: absolute; left: 6px; top: 6px; max-width: calc(100% - 12px);
+      padding: 4px 7px; border-radius: 8px; background: rgba(0,0,0,.72); color: white;
+      font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .thumb-phone {
+      position: absolute; left: 6px; right: 6px; bottom: 6px;
+      padding: 4px 5px; border-radius: 7px; background: rgba(0,0,0,.74); color: white;
+      font-size: 10px; text-align: center; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .empty {
+      border: 1px dashed #394252; border-radius: 18px; padding: 22px 16px;
+      text-align: center; color: var(--muted); line-height: 1.55;
+    }
+
+    .flow-card { border: 1px solid var(--line); background: var(--panel); border-radius: 22px; padding: 18px; }
+    .flow-step { display: flex; align-items: flex-start; gap: 12px; }
+    .step-num { width: 38px; height: 38px; border-radius: 12px; background: #253246; color: #b9d6ff; display: grid; place-items: center; flex: 0 0 auto; }
+    .flow-step h2 { margin: 0 0 6px; font-size: 22px; }
+    .flow-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .flow-actions { display: grid; gap: 10px; margin-top: 18px; }
+    .mini-preview { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .mini-preview .thumb { width: 100%; height: 92px; flex: unset; }
+
+    .editor-panel { display: grid; gap: 14px; }
+    .editor-stage-wrap {
+      background: #050607; border: 1px solid var(--line); border-radius: 20px; padding: 8px; overflow: hidden;
+    }
+    .editor-stage { position: relative; width: 100%; touch-action: none; user-select: none; }
+    .editor-stage img { width: 100%; height: auto; border-radius: 13px; }
+    .phone-overlay {
+      position: absolute; left: 50%; top: 88%; transform: translate(-50%, -50%);
+      color: #fff; background: rgba(0,0,0,.78); border-radius: .38em; padding: .22em .42em;
+      font-size: clamp(20px, 7vw, 44px); line-height: 1.05; white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,.45); box-shadow: 0 2px 12px rgba(0,0,0,.3);
+      cursor: grab; max-width: 96%; overflow: hidden; text-overflow: ellipsis;
+    }
+    .phone-overlay.dragging { cursor: grabbing; outline: 2px solid var(--accent); }
+    .control-card { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 14px; }
+    .control-card label { display: block; font-size: 14px; color: #dce3ec; margin-bottom: 8px; }
+    .phone-input {
+      width: 100%; height: 58px; border-radius: 15px; border: 2px solid #3c4757;
+      background: #0d1014; color: white; padding: 0 15px; font-size: 25px; letter-spacing: .8px;
+      outline: none;
+    }
+    .phone-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(79,156,255,.14); }
+    .range-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; margin-top: 14px; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin-top: 8px; }
+
+    .overview-list { display: grid; gap: 14px; }
+    .overview-party { border: 1px solid var(--line); background: var(--panel); border-radius: 20px; padding: 14px; }
+    .overview-party-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    .overview-party-head strong { font-size: 17px; }
+    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .photo-item { position: relative; border-radius: 15px; overflow: hidden; background: #080a0d; border: 1px solid #303744; }
+    .photo-item img { width: 100%; aspect-ratio: 4/3; object-fit: cover; }
+    .photo-meta { padding: 8px; font-size: 12px; color: #dce3ed; min-height: 48px; }
+    .photo-meta span { display: block; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; }
+    .photo-tools { position: absolute; right: 6px; top: 6px; display: flex; gap: 6px; }
+    .tiny-btn { width: 34px; height: 34px; border-radius: 10px; background: rgba(0,0,0,.76); color: white; border: 1px solid rgba(255,255,255,.22); display: grid; place-items: center; }
+
+    .export-options { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 14px; margin-bottom: 14px; }
+    .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; background: #0d1014; padding: 5px; border-radius: 14px; }
+    .segmented button { min-height: 42px; border-radius: 10px; background: transparent; color: var(--muted); }
+    .segmented button.active { background: #293341; color: white; }
+    .export-preview { background: #050607; border: 1px solid var(--line); border-radius: 20px; padding: 8px; min-height: 180px; display: grid; place-items: center; overflow: auto; }
+    .export-preview img { width: 100%; height: auto; border-radius: 12px; background: white; }
+    .progress { display: none; text-align: center; color: var(--muted); padding: 26px 8px; }
+    .progress.show { display: block; }
+
+    .bottom-actions {
+      position: sticky; bottom: 0; z-index: 25; margin: 18px -16px calc(-18px - var(--safe-bottom));
+      padding: 12px 16px calc(12px + var(--safe-bottom));
+      background: rgba(11,13,16,.94); border-top: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+
+    .toast {
+      position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); z-index: 100;
+      transform: translate(-50%, 24px); opacity: 0; pointer-events: none;
+      background: rgba(32,38,47,.96); color: white; border: 1px solid #485365;
+      border-radius: 14px; padding: 11px 15px; max-width: calc(100vw - 32px); text-align: center;
+      transition: .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .modal {
+      position: fixed; inset: 0; z-index: 80; display: none; align-items: flex-end; justify-content: center;
+      background: rgba(0,0,0,.62); padding: 16px 16px calc(16px + var(--safe-bottom));
+    }
+    .modal.show { display: flex; }
+    .modal-card { width: min(560px, 100%); background: #171b21; border: 1px solid #394251; border-radius: 22px; padding: 18px; }
+    .modal-card h3 { margin: 0 0 8px; font-size: 20px; }
+    .modal-card p { margin: 0 0 16px; color: var(--muted); line-height: 1.5; }
+    .modal-actions { display: grid; gap: 10px; }
+
+    @media (min-width: 680px) {
+      .photo-grid { grid-template-columns: repeat(3, 1fr); }
+      .mini-preview { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar-row">
+        <button id="backBtn" class="icon-btn" aria-label="返回" style="display:none">‹</button>
+        <div class="title-wrap">
+          <div id="pageTitle" class="title">事故照片合成</div>
+          <div id="pageSubtitle" class="subtitle">照片只在本機瀏覽器處理，不會上傳</div>
+        </div>
+        <button id="resetBtn" class="icon-btn" aria-label="清除全部" title="清除全部">↻</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="homeScreen" class="screen active">
+        <div class="hero">
+          <h2>先拍車，再拍人</h2>
+          <p>每一方各自排成一列。車輛方依序拍攝車輛、駕駛及乘客；行人方則拍攝行人及同行人。所有人物照片都必須加入電話。</p>
+        </div>
+
+        <div class="button-grid">
+          <button id="addVehiclePartyBtn" class="btn primary">🚗 新增車輛方</button>
+          <button id="addPedestrianPartyBtn" class="btn warning">🚶 新增行人方</button>
+        </div>
+
+        <div class="section-title">目前拍攝內容</div>
+        <div id="partyList" class="party-list"></div>
+        <div id="emptyState" class="empty">尚未拍攝。請先選擇「新增車輛方」或「新增行人方」。</div>
+
+        <div id="homeBottomActions" class="bottom-actions" style="display:none">
+          <button id="overviewBtn" class="btn">檢查全部照片</button>
+          <button id="goExportBtn" class="btn success">合成輸出</button>
+        </div>
+      </section>
+
+      <section id="flowScreen" class="screen">
+        <div class="flow-card">
+          <div class="flow-step">
+            <div id="flowStepNum" class="step-num">1</div>
+            <div>
+              <h2 id="flowTitle">拍攝</h2>
+              <p id="flowDesc"></p>
+            </div>
+          </div>
+          <div id="flowMiniPreview" class="mini-preview"></div>
+          <div id="flowActions" class="flow-actions"></div>
+        </div>
+      </section>
+
+      <section id="editorScreen" class="screen">
+        <div class="editor-panel">
+          <div class="editor-stage-wrap">
+            <div id="editorStage" class="editor-stage">
+              <img id="editorImage" alt="人物照片預覽" />
+              <div id="phoneOverlay" class="phone-overlay">請輸入電話</div>
+            </div>
+          </div>
+
+          <div class="control-card">
+            <label for="phoneInput">電話號碼</label>
+            <input id="phoneInput" class="phone-input" type="tel" inputmode="numeric" autocomplete="tel" enterkeyhint="done" maxlength="15" placeholder="例如 0912345678" />
+            <div class="range-row">
+              <span>小</span>
+              <input id="fontSizeRange" type="range" min="4" max="11" step="0.5" value="7" />
+              <span>大</span>
+            </div>
+            <div class="hint">電話會以白字黑底顯示。可直接拖曳照片上的電話，調整顯示位置。</div>
+          </div>
+
+          <div class="button-grid">
+            <button id="retakePersonBtn" class="btn danger">重新拍攝</button>
+            <button id="savePersonBtn" class="btn success">儲存並繼續</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="overviewScreen" class="screen">
+        <div class="hero">
+          <h2>檢查全部照片</h2>
+          <p>每一方會維持一列。可修改人物電話、重新拍攝或刪除照片。</p>
+        </div>
+        <div id="overviewList" class="overview-list"></div>
+        <div class="bottom-actions">
+          <button id="overviewBackBtn" class="btn">返回拍攝</button>
+          <button id="overviewExportBtn" class="btn success">合成輸出</button>
+        </div>
+      </section>
+
+      <section id="exportScreen" class="screen">
+        <div class="export-options">
+          <div class="section-title" style="margin-top:0">照片排列方式</div>
+          <div id="fitSegment" class="segmented">
+            <button data-fit="cover" class="active">填滿版面</button>
+            <button data-fit="contain">完整顯示</button>
+          </div>
+          <div class="hint">每一方固定一列；同一方的車輛、駕駛及乘客會平均分配該列寬度。</div>
+        </div>
+
+        <div id="exportPreview" class="export-preview">
+          <div id="exportProgress" class="progress show">正在合成照片……</div>
+          <img id="exportImage" alt="合成照片預覽" style="display:none" />
+        </div>
+
+        <div class="button-grid" style="margin-top:14px">
+          <button id="downloadBtn" class="btn primary" disabled>下載圖片</button>
+          <button id="shareBtn" class="btn success" disabled>分享／儲存相簿</button>
+        </div>
+        <button id="exportBackBtn" class="btn ghost wide" style="margin-top:10px">返回修改</button>
+      </section>
+    </main>
+  </div>
+
+  <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+  <div id="toast" class="toast"></div>
+
+  <div id="confirmModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="confirmTitle">確認</h3>
+      <p id="confirmMessage"></p>
+      <div class="modal-actions">
+        <button id="confirmOkBtn" class="btn danger">確定</button>
+        <button id="confirmCancelBtn" class="btn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+    const screens = [...document.querySelectorAll('.screen')];
+
+    const state = {
+      parties: [],
+      currentPartyId: null,
+      pendingCapture: null,
+      pendingPerson: null,
+      editingPhotoRef: null,
+      editorReturnScreen: 'flowScreen',
+      currentScreen: 'homeScreen',
+      exportFit: 'cover',
+      exportBlob: null,
+      exportUrl: null,
+      confirmResolver: null
+    };
+
+    const labels = {
+      vehicle: '車輛',
+      driver: '駕駛',
+      passenger: '乘客',
+      pedestrian: '行人',
+      companion: '同行人'
+    };
+
+    const els = {
+      backBtn: $('backBtn'), resetBtn: $('resetBtn'), pageTitle: $('pageTitle'), pageSubtitle: $('pageSubtitle'),
+      partyList: $('partyList'), emptyState: $('emptyState'), homeBottomActions: $('homeBottomActions'),
+      addVehiclePartyBtn: $('addVehiclePartyBtn'), addPedestrianPartyBtn: $('addPedestrianPartyBtn'),
+      overviewBtn: $('overviewBtn'), goExportBtn: $('goExportBtn'),
+      flowStepNum: $('flowStepNum'), flowTitle: $('flowTitle'), flowDesc: $('flowDesc'), flowActions: $('flowActions'), flowMiniPreview: $('flowMiniPreview'),
+      editorImage: $('editorImage'), editorStage: $('editorStage'), phoneOverlay: $('phoneOverlay'), phoneInput: $('phoneInput'), fontSizeRange: $('fontSizeRange'),
+      retakePersonBtn: $('retakePersonBtn'), savePersonBtn: $('savePersonBtn'),
+      overviewList: $('overviewList'), overviewBackBtn: $('overviewBackBtn'), overviewExportBtn: $('overviewExportBtn'),
+      fitSegment: $('fitSegment'), exportProgress: $('exportProgress'), exportImage: $('exportImage'), downloadBtn: $('downloadBtn'), shareBtn: $('shareBtn'), exportBackBtn: $('exportBackBtn'),
+      cameraInput: $('cameraInput'), toast: $('toast'),
+      confirmModal: $('confirmModal'), confirmTitle: $('confirmTitle'), confirmMessage: $('confirmMessage'), confirmOkBtn: $('confirmOkBtn'), confirmCancelBtn: $('confirmCancelBtn')
+    };
+
+    function uid(prefix = 'id') {
+      return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+    }
+
+    function confirmAction(title, message, okText = '確定') {
+      els.confirmTitle.textContent = title;
+      els.confirmMessage.textContent = message;
+      els.confirmOkBtn.textContent = okText;
+      els.confirmModal.classList.add('show');
+      return new Promise(resolve => { state.confirmResolver = resolve; });
+    }
+
+    function closeConfirm(result) {
+      els.confirmModal.classList.remove('show');
+      if (state.confirmResolver) state.confirmResolver(result);
+      state.confirmResolver = null;
+    }
+
+    els.confirmOkBtn.addEventListener('click', () => closeConfirm(true));
+    els.confirmCancelBtn.addEventListener('click', () => closeConfirm(false));
+    els.confirmModal.addEventListener('click', (e) => { if (e.target === els.confirmModal) closeConfirm(false); });
+
+    function setHeader(title, subtitle, showBack = false) {
+      els.pageTitle.textContent = title;
+      els.pageSubtitle.textContent = subtitle;
+      els.backBtn.style.display = showBack ? 'grid' : 'none';
+    }
+
+    function showScreen(id) {
+      state.currentScreen = id;
+      screens.forEach(s => s.classList.toggle('active', s.id === id));
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      if (id === 'homeScreen') setHeader('事故照片合成', '照片只在本機瀏覽器處理，不會上傳', false);
+      if (id === 'flowScreen') setHeader('依序拍攝', '完成目前一方後，再新增下一方', true);
+      if (id === 'editorScreen') setHeader('加入電話', '輸入電話後可拖曳文字位置', true);
+      if (id === 'overviewScreen') setHeader('檢查全部照片', '每一方固定排成一列', true);
+      if (id === 'exportScreen') setHeader('合成輸出', '預覽完成後下載或分享', true);
+    }
+
+    function partyById(id) { return state.parties.find(p => p.id === id); }
+    function currentParty() { return partyById(state.currentPartyId); }
+    function isPersonKind(kind) { return ['driver', 'passenger', 'pedestrian', 'companion'].includes(kind); }
+
+    function partyTitle(index, party) {
+      return `第${index + 1}方・${party.type === 'vehicle' ? '車輛方' : '行人方'}`;
+    }
+
+    function countPeople(party) { return party.photos.filter(p => isPersonKind(p.kind)).length; }
+
+    function createParty(type) {
+      const party = { id: uid('party'), type, photos: [] };
+      state.parties.push(party);
+      state.currentPartyId = party.id;
+      renderHome();
+      showScreen('flowScreen');
+      renderFlow();
+      // 保持在使用者點擊事件內直接開啟相機，避免 iPhone Safari 阻擋非同步觸發。
+      if (type === 'vehicle') requestCapture('vehicle', '車輛');
+      else requestCapture('pedestrian', '行人');
+    }
+
+    function renderHome() {
+      els.partyList.innerHTML = '';
+      const has = state.parties.length > 0;
+      els.emptyState.style.display = has ? 'none' : 'block';
+      els.homeBottomActions.style.display = has ? 'grid' : 'none';
+
+      state.parties.forEach((party, index) => {
+        const card = document.createElement('article');
+        card.className = 'party-card';
+        const head = document.createElement('div');
+        head.className = 'party-head';
+        head.innerHTML = `
+          <div class="party-badge">第${index + 1}方</div>
+          <div class="party-name">
+            <strong>${party.type === 'vehicle' ? '車輛方' : '行人方'}</strong>
+            <span>${party.photos.length} 張照片・${countPeople(party)} 人</span>
+          </div>
+          <div class="party-actions">
+            <button class="btn small" data-action="continue" data-id="${party.id}">繼續</button>
+          </div>`;
+        const row = document.createElement('div');
+        row.className = 'thumb-row';
+        if (!party.photos.length) {
+          row.innerHTML = '<div class="hint">尚未完成拍攝</div>';
+        } else {
+          party.photos.forEach(photo => row.appendChild(makeThumb(photo)));
+        }
+        card.append(head, row);
+        els.partyList.appendChild(card);
+      });
+
+      els.partyList.querySelectorAll('[data-action="continue"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.currentPartyId = btn.dataset.id;
+          showScreen('flowScreen');
+          renderFlow();
+        });
+      });
+    }
+
+    function makeThumb(photo) {
+      const div = document.createElement('div');
+      div.className = 'thumb';
+      const phone = photo.phone ? `<div class="thumb-phone">${escapeHtml(formatPhone(photo.phone))}</div>` : '';
+      div.innerHTML = `<img src="${photo.dataUrl}" alt="${labels[photo.kind] || '照片'}"><div class="thumb-label">${escapeHtml(photo.label)}</div>${phone}`;
+      return div;
+    }
+
+    function renderFlow() {
+      const party = currentParty();
+      if (!party) { showScreen('homeScreen'); return; }
+      const index = state.parties.findIndex(p => p.id === party.id);
+      els.flowStepNum.textContent = index + 1;
+      els.flowTitle.textContent = partyTitle(index, party);
+      els.flowMiniPreview.innerHTML = '';
+      party.photos.forEach(photo => els.flowMiniPreview.appendChild(makeThumb(photo)));
+      els.flowDesc.textContent = flowDescription(party);
+      els.flowActions.innerHTML = '';
+
+      const addButton = (text, cls, handler) => {
+        const btn = document.createElement('button');
+        btn.className = `btn wide ${cls || ''}`;
+        btn.textContent = text;
+        btn.addEventListener('click', handler);
+        els.flowActions.appendChild(btn);
+      };
+
+      if (party.type === 'vehicle') {
+        const hasVehicle = party.photos.some(p => p.kind === 'vehicle');
+        const hasDriver = party.photos.some(p => p.kind === 'driver');
+        if (!hasVehicle) {
+          addButton('📷 拍攝車輛', 'primary', () => requestCapture('vehicle', '車輛'));
+        } else if (!hasDriver) {
+          addButton('📷 下一步：拍攝駕駛', 'primary', () => requestCapture('driver', '駕駛'));
+          addButton('重新拍攝車輛', 'danger', () => replaceFirstKind(party, 'vehicle'));
+        } else {
+          const passengerNo = party.photos.filter(p => p.kind === 'passenger').length + 1;
+          addButton(`➕ 新增乘客 ${passengerNo}`, 'primary', () => requestCapture('passenger', `乘客${passengerNo}`));
+          addButton('➡️ 完成本方，新增下一方', 'success', finishCurrentParty);
+          addButton('檢查本方照片', '', () => { showScreen('overviewScreen'); renderOverview(); });
+        }
+      } else {
+        const hasPedestrian = party.photos.some(p => p.kind === 'pedestrian');
+        if (!hasPedestrian) {
+          addButton('📷 拍攝行人', 'primary', () => requestCapture('pedestrian', '行人'));
+        } else {
+          const companionNo = party.photos.filter(p => p.kind === 'companion').length + 1;
+          addButton(`➕ 新增同行人 ${companionNo}`, 'primary', () => requestCapture('companion', `同行人${companionNo}`));
+          addButton('➡️ 完成本方，新增下一方', 'success', finishCurrentParty);
+          addButton('檢查本方照片', '', () => { showScreen('overviewScreen'); renderOverview(); });
+        }
+      }
+
+      if (party.photos.length) {
+        addButton('返回全部拍攝內容', 'ghost', () => { renderHome(); showScreen('homeScreen'); });
+      }
+    }
+
+    function flowDescription(party) {
+      if (party.type === 'vehicle') {
+        const hasVehicle = party.photos.some(p => p.kind === 'vehicle');
+        const hasDriver = party.photos.some(p => p.kind === 'driver');
+        if (!hasVehicle) return '請先拍攝本方車輛。';
+        if (!hasDriver) return '車輛已完成，接著拍攝駕駛並輸入電話。';
+        return '駕駛已完成。如有乘客可繼續新增；沒有乘客則完成本方。';
+      }
+      if (!party.photos.some(p => p.kind === 'pedestrian')) return '請拍攝本方行人，接著輸入電話。';
+      return '行人已完成。如有同行人可繼續新增；沒有同行人則完成本方。';
+    }
+
+    async function finishCurrentParty() {
+      const party = currentParty();
+      if (!party) return;
+      const ok = await validateParty(party, false);
+      if (!ok) return;
+      renderHome();
+      showScreen('homeScreen');
+      showToast('本方已完成，可新增下一方或直接合成');
+    }
+
+    async function validateParty(party, showAlert = true) {
+      if (party.type === 'vehicle') {
+        if (!party.photos.some(p => p.kind === 'vehicle') || !party.photos.some(p => p.kind === 'driver')) {
+          if (showAlert) showToast('車輛方至少需要車輛與駕駛照片');
+          return false;
+        }
+      } else if (!party.photos.some(p => p.kind === 'pedestrian')) {
+        if (showAlert) showToast('行人方至少需要一張行人照片');
+        return false;
+      }
+      const missing = party.photos.find(p => isPersonKind(p.kind) && !String(p.phone || '').trim());
+      if (missing) {
+        if (showAlert) showToast(`${missing.label}尚未輸入電話`);
+        return false;
+      }
+      return true;
+    }
+
+    function requestCapture(kind, label, options = {}) {
+      state.pendingCapture = {
+        partyId: options.partyId || state.currentPartyId,
+        kind,
+        label,
+        replacePhotoId: options.replacePhotoId || null
+      };
+      els.cameraInput.value = '';
+      els.cameraInput.click();
+    }
+
+    function replaceFirstKind(party, kind) {
+      const photo = party.photos.find(p => p.kind === kind);
+      if (photo) requestCapture(kind, photo.label, { partyId: party.id, replacePhotoId: photo.id });
+    }
+
+    els.cameraInput.addEventListener('change', async () => {
+      const file = els.cameraInput.files && els.cameraInput.files[0];
+      if (!file || !state.pendingCapture) return;
+      const capture = state.pendingCapture;
+      try {
+        showToast('正在處理照片');
+        const dataUrl = await normalizeImage(file, 1900, .88);
+        const party = partyById(capture.partyId);
+        if (!party) throw new Error('找不到拍攝方');
+
+        if (isPersonKind(capture.kind)) {
+          state.pendingPerson = {
+            partyId: capture.partyId,
+            kind: capture.kind,
+            label: capture.label,
+            dataUrl,
+            phone: '',
+            textX: .5,
+            textY: .88,
+            fontScale: 7,
+            replacePhotoId: capture.replacePhotoId || null
+          };
+          openPersonEditor();
+        } else {
+          const photo = {
+            id: capture.replacePhotoId || uid('photo'),
+            kind: capture.kind,
+            label: capture.label,
+            dataUrl,
+            phone: '', textX: .5, textY: .88, fontScale: 7
+          };
+          upsertPhoto(party, photo, capture.replacePhotoId);
+          state.currentPartyId = party.id;
+          showScreen('flowScreen');
+          renderFlow();
+          showToast('車輛照片已加入');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('照片處理失敗，請重新拍攝');
+      } finally {
+        state.pendingCapture = null;
+        els.cameraInput.value = '';
+      }
+    });
+
+    function upsertPhoto(party, photo, replaceId = null) {
+      if (replaceId) {
+        const index = party.photos.findIndex(p => p.id === replaceId);
+        if (index >= 0) party.photos[index] = { ...party.photos[index], ...photo, id: replaceId };
+        else party.photos.push(photo);
+      } else {
+        party.photos.push(photo);
+      }
+    }
+
+    function openPersonEditor(existing = null) {
+      const data = existing || state.pendingPerson;
+      if (!data) return;
+      state.editorReturnScreen = state.editingPhotoRef ? 'overviewScreen' : 'flowScreen';
+      els.editorImage.src = data.dataUrl;
+      els.phoneInput.value = data.phone || '';
+      els.fontSizeRange.value = data.fontScale || 7;
+      updatePhoneOverlay(data);
+      showScreen('editorScreen');
+      requestAnimationFrame(() => {
+        setTimeout(() => els.phoneInput.focus({ preventScroll: true }), 220);
+      });
+    }
+
+    function updatePhoneOverlay(data = state.pendingPerson) {
+      if (!data) return;
+      const value = formatPhone(els.phoneInput.value.trim());
+      els.phoneOverlay.textContent = value || '請輸入電話';
+      els.phoneOverlay.style.left = `${(data.textX ?? .5) * 100}%`;
+      els.phoneOverlay.style.top = `${(data.textY ?? .88) * 100}%`;
+      els.phoneOverlay.style.fontSize = `clamp(18px, ${Number(els.fontSizeRange.value)}vw, 54px)`;
+      els.phoneOverlay.style.opacity = value ? '1' : '.72';
+    }
+
+    els.phoneInput.addEventListener('input', () => {
+      const digits = els.phoneInput.value.replace(/[^0-9]/g, '').slice(0, 15);
+      if (els.phoneInput.value !== digits) els.phoneInput.value = digits;
+      updatePhoneOverlay();
+    });
+    els.fontSizeRange.addEventListener('input', () => updatePhoneOverlay());
+
+    let dragState = null;
+    els.phoneOverlay.addEventListener('pointerdown', (e) => {
+      if (!state.pendingPerson) return;
+      dragState = { pointerId: e.pointerId };
+      els.phoneOverlay.setPointerCapture(e.pointerId);
+      els.phoneOverlay.classList.add('dragging');
+      e.preventDefault();
+    });
+    els.phoneOverlay.addEventListener('pointermove', (e) => {
+      if (!dragState || !state.pendingPerson) return;
+      const rect = els.editorStage.getBoundingClientRect();
+      const x = Math.min(.95, Math.max(.05, (e.clientX - rect.left) / rect.width));
+      const y = Math.min(.95, Math.max(.05, (e.clientY - rect.top) / rect.height));
+      state.pendingPerson.textX = x;
+      state.pendingPerson.textY = y;
+      updatePhoneOverlay();
+    });
+    const endDrag = (e) => {
+      if (!dragState) return;
+      try { els.phoneOverlay.releasePointerCapture(e.pointerId); } catch (_) {}
+      dragState = null;
+      els.phoneOverlay.classList.remove('dragging');
+    };
+    els.phoneOverlay.addEventListener('pointerup', endDrag);
+    els.phoneOverlay.addEventListener('pointercancel', endDrag);
+
+    els.savePersonBtn.addEventListener('click', () => {
+      if (!state.pendingPerson) return;
+      const phone = els.phoneInput.value.trim();
+      if (!phone) {
+        showToast('人物照片必須輸入電話');
+        els.phoneInput.focus();
+        return;
+      }
+      const party = partyById(state.pendingPerson.partyId);
+      if (!party) return;
+      const photo = {
+        id: state.pendingPerson.replacePhotoId || uid('photo'),
+        kind: state.pendingPerson.kind,
+        label: state.pendingPerson.label,
+        dataUrl: state.pendingPerson.dataUrl,
+        phone,
+        textX: state.pendingPerson.textX,
+        textY: state.pendingPerson.textY,
+        fontScale: Number(els.fontSizeRange.value)
+      };
+      upsertPhoto(party, photo, state.pendingPerson.replacePhotoId);
+      state.currentPartyId = party.id;
+      const returnToOverview = state.editorReturnScreen === 'overviewScreen';
+      state.pendingPerson = null;
+      state.editingPhotoRef = null;
+      if (returnToOverview) {
+        renderOverview();
+        showScreen('overviewScreen');
+      } else {
+        showScreen('flowScreen');
+        renderFlow();
+      }
+      showToast('人物照片與電話已加入');
+    });
+
+    els.retakePersonBtn.addEventListener('click', () => {
+      if (!state.pendingPerson) return;
+      const p = state.pendingPerson;
+      requestCapture(p.kind, p.label, { partyId: p.partyId, replacePhotoId: p.replacePhotoId });
+    });
+
+    function renderOverview() {
+      els.overviewList.innerHTML = '';
+      state.parties.forEach((party, partyIndex) => {
+        const box = document.createElement('section');
+        box.className = 'overview-party';
+        box.innerHTML = `<div class="overview-party-head"><strong>${partyTitle(partyIndex, party)}</strong><span class="hint" style="margin:0">${party.photos.length} 張</span></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'photo-grid';
+        party.photos.forEach((photo, photoIndex) => {
+          const item = document.createElement('article');
+          item.className = 'photo-item';
+          item.innerHTML = `
+            <img src="${photo.dataUrl}" alt="${escapeHtml(photo.label)}">
+            <div class="photo-tools">
+              ${isPersonKind(photo.kind) ? `<button class="tiny-btn" data-edit="${photo.id}" data-party="${party.id}" title="修改電話">✎</button>` : ''}
+              <button class="tiny-btn" data-retake="${photo.id}" data-party="${party.id}" title="重新拍攝">↻</button>
+              <button class="tiny-btn" data-delete="${photo.id}" data-party="${party.id}" title="刪除">×</button>
+            </div>
+            <div class="photo-meta">${photoIndex + 1}. ${escapeHtml(photo.label)}${photo.phone ? `<span>${escapeHtml(formatPhone(photo.phone))}</span>` : ''}</div>`;
+          grid.appendChild(item);
+        });
+        box.appendChild(grid);
+        els.overviewList.appendChild(box);
+      });
+
+      els.overviewList.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => editExistingPerson(btn.dataset.party, btn.dataset.edit)));
+      els.overviewList.querySelectorAll('[data-retake]').forEach(btn => btn.addEventListener('click', () => retakeExisting(btn.dataset.party, btn.dataset.retake)));
+      els.overviewList.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => deletePhoto(btn.dataset.party, btn.dataset.delete)));
+    }
+
+    function editExistingPerson(partyId, photoId) {
+      const party = partyById(partyId);
+      const photo = party?.photos.find(p => p.id === photoId);
+      if (!photo) return;
+      state.currentPartyId = partyId;
+      state.pendingPerson = { ...photo, partyId, replacePhotoId: photoId };
+      state.editingPhotoRef = { partyId, photoId };
+      openPersonEditor();
+    }
+
+    function retakeExisting(partyId, photoId) {
+      const party = partyById(partyId);
+      const photo = party?.photos.find(p => p.id === photoId);
+      if (!photo) return;
+      state.currentPartyId = partyId;
+      state.editingPhotoRef = isPersonKind(photo.kind) ? { partyId, photoId } : null;
+      requestCapture(photo.kind, photo.label, { partyId, replacePhotoId: photoId });
+    }
+
+    async function deletePhoto(partyId, photoId) {
+      const party = partyById(partyId);
+      const photo = party?.photos.find(p => p.id === photoId);
+      if (!party || !photo) return;
+      const ok = await confirmAction('刪除照片', `確定刪除「${photo.label}」照片？`, '刪除');
+      if (!ok) return;
+      party.photos = party.photos.filter(p => p.id !== photoId);
+      if (!party.photos.length) state.parties = state.parties.filter(p => p.id !== partyId);
+      renderOverview();
+      renderHome();
+      showToast('照片已刪除');
+      if (!state.parties.length) showScreen('homeScreen');
+    }
+
+    async function canExport() {
+      if (!state.parties.length) { showToast('尚未拍攝任何照片'); return false; }
+      for (const party of state.parties) {
+        if (!(await validateParty(party, true))) return false;
+      }
+      return true;
+    }
+
+    async function openExport() {
+      if (!(await canExport())) return;
+      showScreen('exportScreen');
+      await generateComposite();
+    }
+
+    async function generateComposite() {
+      cleanupExportUrl();
+      els.exportProgress.classList.add('show');
+      els.exportImage.style.display = 'none';
+      els.downloadBtn.disabled = true;
+      els.shareBtn.disabled = true;
+
+      try {
+        const canvas = await composeParties(state.parties, state.exportFit);
+        const blob = await canvasToBlob(canvas, 'image/jpeg', .92);
+        state.exportBlob = blob;
+        state.exportUrl = URL.createObjectURL(blob);
+        els.exportImage.src = state.exportUrl;
+        await new Promise((resolve, reject) => { els.exportImage.onload = resolve; els.exportImage.onerror = reject; });
+        els.exportProgress.classList.remove('show');
+        els.exportImage.style.display = 'block';
+        els.downloadBtn.disabled = false;
+        els.shareBtn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        els.exportProgress.textContent = '合成失敗，請返回檢查照片後重試。';
+        showToast('合成失敗');
+      }
+    }
+
+    async function composeParties(parties, fitMode) {
+      const canvasWidth = 2400;
+      const gap = 14;
+      const outer = 14;
+      // 以所有當事方中最多照片數作為固定欄數：
+      // 例如第一方 3 張、第二方 2 張，第二列會保留第 3 欄空白，符合「一方一列」的排列。
+      const maxCols = Math.max(1, ...parties.map(party => party.photos.length));
+      const cellW = (canvasWidth - outer * 2 - gap * (maxCols - 1)) / maxCols;
+      const rowH = Math.max(360, Math.min(1120, Math.round(cellW * .76)));
+      const canvasHeight = outer * 2 + rowH * parties.length + gap * (parties.length - 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      let y = outer;
+      for (let r = 0; r < parties.length; r++) {
+        const party = parties[r];
+        const n = party.photos.length;
+        for (let i = 0; i < n; i++) {
+          const photo = party.photos[i];
+          const x = outer + i * (cellW + gap);
+          const img = await loadImage(photo.dataUrl);
+          drawImageFit(ctx, img, x, y, cellW, rowH, fitMode);
+          ctx.strokeStyle = '#d7d7d7';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, cellW - 2, rowH - 2);
+          if (isPersonKind(photo.kind) && photo.phone) {
+            drawPhoneOverlay(ctx, photo, x, y, cellW, rowH);
+          }
+        }
+        y += rowH + gap;
+      }
+      return canvas;
+    }
+
+    function drawImageFit(ctx, img, x, y, w, h, fitMode) {
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      const scale = fitMode === 'contain' ? Math.min(w / iw, h / ih) : Math.max(w / iw, h / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      const dx = x + (w - dw) / 2;
+      const dy = y + (h - dh) / 2;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      ctx.fillStyle = '#111111'; ctx.fillRect(x, y, w, h);
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.restore();
+    }
+
+    function drawPhoneOverlay(ctx, photo, x, y, w, h) {
+      const text = formatPhone(photo.phone);
+      const fontSize = Math.max(34, Math.min(115, w * ((photo.fontScale || 7) / 100)));
+      ctx.save();
+      ctx.font = `800 ${fontSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      const metrics = ctx.measureText(text);
+      const padX = fontSize * .34;
+      const padY = fontSize * .22;
+      const boxW = Math.min(w * .94, metrics.width + padX * 2);
+      const boxH = fontSize + padY * 2;
+      const cx = x + w * (photo.textX ?? .5);
+      const cy = y + h * (photo.textY ?? .88);
+      const bx = Math.max(x + 8, Math.min(x + w - boxW - 8, cx - boxW / 2));
+      const by = Math.max(y + 8, Math.min(y + h - boxH - 8, cy - boxH / 2));
+      roundRect(ctx, bx, by, boxW, boxH, fontSize * .25);
+      ctx.fillStyle = 'rgba(0,0,0,.80)'; ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, bx + boxW / 2, by + boxH / 2 + fontSize * .02, boxW - padX);
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    async function normalizeImage(file, maxDim = 1900, quality = .88) {
+      let source;
+      try {
+        source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      } catch (_) {
+        source = await loadImage(URL.createObjectURL(file), true);
+      }
+      const sw = source.naturalWidth || source.width;
+      const sh = source.naturalHeight || source.height;
+      const scale = Math.min(1, maxDim / Math.max(sw, sh));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(sw * scale));
+      canvas.height = Math.max(1, Math.round(sh * scale));
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      if (source.close) source.close();
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    function loadImage(src, revokeAfter = false) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => { if (revokeAfter) URL.revokeObjectURL(src); resolve(img); };
+        img.onerror = () => { if (revokeAfter) URL.revokeObjectURL(src); reject(new Error('圖片載入失敗')); };
+        img.src = src;
+      });
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('輸出失敗')), type, quality));
+    }
+
+    function formatPhone(value) {
+      const digits = String(value || '').replace(/\D/g, '');
+      if (/^09\d{8}$/.test(digits)) return `${digits.slice(0,4)}-${digits.slice(4,7)}-${digits.slice(7)}`;
+      if (/^0\d{8,9}$/.test(digits)) return digits;
+      return digits || String(value || '');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
+    }
+
+    function cleanupExportUrl() {
+      if (state.exportUrl) URL.revokeObjectURL(state.exportUrl);
+      state.exportUrl = null;
+      state.exportBlob = null;
+    }
+
+    function outputFilename() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `車禍當事人照片_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.jpg`;
+    }
+
+    els.downloadBtn.addEventListener('click', () => {
+      if (!state.exportUrl) return;
+      const a = document.createElement('a');
+      a.href = state.exportUrl;
+      a.download = outputFilename();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('已建立下載檔案');
+    });
+
+    els.shareBtn.addEventListener('click', async () => {
+      if (!state.exportBlob) return;
+      const file = new File([state.exportBlob], outputFilename(), { type: 'image/jpeg' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: '車禍當事人照片' });
+        } else if (navigator.share) {
+          await navigator.share({ title: '車禍當事人照片' });
+          showToast('此瀏覽器未支援直接分享圖片，請使用下載圖片');
+        } else {
+          showToast('此瀏覽器未支援分享，請使用下載圖片');
+        }
+      } catch (err) {
+        if (err?.name !== 'AbortError') showToast('分享未完成，請改用下載圖片');
+      }
+    });
+
+    els.fitSegment.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        els.fitSegment.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+        state.exportFit = btn.dataset.fit;
+        await generateComposite();
+      });
+    });
+
+    els.addVehiclePartyBtn.addEventListener('click', () => createParty('vehicle'));
+    els.addPedestrianPartyBtn.addEventListener('click', () => createParty('pedestrian'));
+    els.overviewBtn.addEventListener('click', () => { renderOverview(); showScreen('overviewScreen'); });
+    els.goExportBtn.addEventListener('click', openExport);
+    els.overviewExportBtn.addEventListener('click', openExport);
+    els.overviewBackBtn.addEventListener('click', () => { renderHome(); showScreen('homeScreen'); });
+    els.exportBackBtn.addEventListener('click', () => { renderOverview(); showScreen('overviewScreen'); });
+
+    els.backBtn.addEventListener('click', () => {
+      if (state.currentScreen === 'flowScreen') { renderHome(); showScreen('homeScreen'); }
+      else if (state.currentScreen === 'editorScreen') {
+        const returnToOverview = state.editorReturnScreen === 'overviewScreen';
+        state.pendingPerson = null;
+        state.editingPhotoRef = null;
+        if (returnToOverview) { renderOverview(); showScreen('overviewScreen'); }
+        else if (state.currentPartyId) { showScreen('flowScreen'); renderFlow(); }
+        else { renderHome(); showScreen('homeScreen'); }
+      }
+      else if (state.currentScreen === 'overviewScreen') { renderHome(); showScreen('homeScreen'); }
+      else if (state.currentScreen === 'exportScreen') { renderOverview(); showScreen('overviewScreen'); }
+    });
+
+    els.resetBtn.addEventListener('click', async () => {
+      if (!state.parties.length) { showToast('目前沒有資料'); return; }
+      const ok = await confirmAction('清除全部資料', '所有尚未輸出的照片與電話都會從本頁清除，確定繼續？', '全部清除');
+      if (!ok) return;
+      state.parties = [];
+      state.currentPartyId = null;
+      state.pendingCapture = null;
+      state.pendingPerson = null;
+      cleanupExportUrl();
+      renderHome();
+      showScreen('homeScreen');
+      showToast('已清除全部資料');
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+      if (!state.parties.length) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    renderHome();
+  </script>
+</body>
+</html>
