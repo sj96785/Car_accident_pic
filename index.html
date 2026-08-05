@@ -124,6 +124,16 @@
     .flow-step h2 { margin: 0 0 6px; font-size: 22px; }
     .flow-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
     .flow-actions { display: grid; gap: 10px; margin-top: 18px; }
+    .quick-capture-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .quick-capture-grid .btn { min-height: 68px; font-size: 18px; }
+    .party-switcher { display: flex; gap: 8px; overflow-x: auto; margin-top: 16px; padding-bottom: 2px; }
+    .party-chip {
+      flex: 0 0 auto; min-width: 64px; height: 42px; padding: 0 13px; border-radius: 13px;
+      background: #10141a; color: var(--muted); border: 1px solid var(--line);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .party-chip.active { background: var(--accent); color: #071321; border-color: transparent; }
+    .party-chip.add { background: #26313f; color: #eaf2ff; }
     .mini-preview { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .mini-preview .thumb { width: 100%; height: 92px; flex: unset; }
 
@@ -223,18 +233,18 @@
     <main>
       <section id="homeScreen" class="screen active">
         <div class="hero">
-          <h2>先拍車，再拍人</h2>
-          <p>每一方各自排成一列。車輛方依序拍攝車輛、駕駛及乘客；行人方則拍攝行人及同行人。所有人物照片都必須加入電話。</p>
+          <h2>自由順序快速拍攝</h2>
+          <p>先選目前方別，再直接拍車輛、駕駛、乘客或行人，順序不限。人物拍完會立即輸入電話，輸出時再自動依角色排列。</p>
         </div>
 
         <div class="button-grid">
-          <button id="addVehiclePartyBtn" class="btn primary">🚗 新增車輛方</button>
-          <button id="addPedestrianPartyBtn" class="btn warning">🚶 新增行人方</button>
+          <button id="addVehiclePartyBtn" class="btn primary">＋ 新增下一方</button>
+          <button id="addPedestrianPartyBtn" class="btn warning">📷 繼續快速拍攝</button>
         </div>
 
         <div class="section-title">目前拍攝內容</div>
         <div id="partyList" class="party-list"></div>
-        <div id="emptyState" class="empty">尚未拍攝。請先選擇「新增車輛方」或「新增行人方」。</div>
+        <div id="emptyState" class="empty">尚未建立任何方別。請先按「新增下一方」。</div>
 
         <div id="homeBottomActions" class="bottom-actions" style="display:none">
           <button id="overviewBtn" class="btn">檢查全部照片</button>
@@ -247,10 +257,11 @@
           <div class="flow-step">
             <div id="flowStepNum" class="step-num">1</div>
             <div>
-              <h2 id="flowTitle">拍攝</h2>
+              <h2 id="flowTitle">快速拍攝</h2>
               <p id="flowDesc"></p>
             </div>
           </div>
+          <div id="flowPartySwitcher" class="party-switcher"></div>
           <div id="flowMiniPreview" class="mini-preview"></div>
           <div id="flowActions" class="flow-actions"></div>
         </div>
@@ -298,7 +309,7 @@
       <section id="exportScreen" class="screen">
         <div class="export-options">
           <div class="section-title" style="margin-top:0">照片排列方式</div>
-          <div class="hint">合成照片固定使用完整顯示，不會自動裁切填滿。每一方固定一列，最左側會標示 1 方、2 方、3 方；各照片左側也會標示車輛、駕駛、乘客、行人或同行人。</div>
+          <div class="hint">拍攝順序可以任意打亂；合成時會自動依「車輛、駕駛、乘客」或「行人」重新排列。照片採手機直式版型完整顯示，不會裁切填滿。</div>
         </div>
 
         <div id="exportPreview" class="export-preview">
@@ -362,7 +373,7 @@
       partyList: $('partyList'), emptyState: $('emptyState'), homeBottomActions: $('homeBottomActions'),
       addVehiclePartyBtn: $('addVehiclePartyBtn'), addPedestrianPartyBtn: $('addPedestrianPartyBtn'),
       overviewBtn: $('overviewBtn'), goExportBtn: $('goExportBtn'),
-      flowStepNum: $('flowStepNum'), flowTitle: $('flowTitle'), flowDesc: $('flowDesc'), flowActions: $('flowActions'), flowMiniPreview: $('flowMiniPreview'),
+      flowStepNum: $('flowStepNum'), flowTitle: $('flowTitle'), flowDesc: $('flowDesc'), flowActions: $('flowActions'), flowMiniPreview: $('flowMiniPreview'), flowPartySwitcher: $('flowPartySwitcher'),
       editorImage: $('editorImage'), editorStage: $('editorStage'), phoneOverlay: $('phoneOverlay'), phoneInput: $('phoneInput'), fontSizeRange: $('fontSizeRange'),
       retakePersonBtn: $('retakePersonBtn'), savePersonBtn: $('savePersonBtn'),
       overviewList: $('overviewList'), overviewBackBtn: $('overviewBackBtn'), overviewExportBtn: $('overviewExportBtn'),
@@ -411,32 +422,49 @@
       screens.forEach(s => s.classList.toggle('active', s.id === id));
       window.scrollTo({ top: 0, behavior: 'auto' });
       if (id === 'homeScreen') setHeader('事故照片合成', '照片只在本機瀏覽器處理，不會上傳', false);
-      if (id === 'flowScreen') setHeader('依序拍攝', '完成目前一方後，再新增下一方', true);
+      if (id === 'flowScreen') setHeader('快速拍攝', '先選方別，再點選要拍的角色', true);
       if (id === 'editorScreen') setHeader('加入電話', '輸入電話後可拖曳文字位置', true);
       if (id === 'overviewScreen') setHeader('檢查全部照片', '每一方固定排成一列', true);
-      if (id === 'exportScreen') setHeader('合成輸出', '固定完整顯示，不自動裁切', true);
+      if (id === 'exportScreen') setHeader('合成輸出', '手機直式照片版型，完整顯示不裁切', true);
     }
 
     function partyById(id) { return state.parties.find(p => p.id === id); }
     function currentParty() { return partyById(state.currentPartyId); }
     function isPersonKind(kind) { return ['driver', 'passenger', 'pedestrian', 'companion'].includes(kind); }
 
+    function partyTypeName(party) {
+      const hasVehicleRole = party.photos.some(p => ['vehicle', 'driver', 'passenger'].includes(p.kind));
+      const hasPedestrianRole = party.photos.some(p => ['pedestrian', 'companion'].includes(p.kind));
+      if (hasVehicleRole && hasPedestrianRole) return '混合方';
+      if (hasVehicleRole) return '車輛方';
+      if (hasPedestrianRole) return '行人方';
+      return '尚未拍攝';
+    }
+
     function partyTitle(index, party) {
-      return `第${index + 1}方・${party.type === 'vehicle' ? '車輛方' : '行人方'}`;
+      return `第${index + 1}方・${partyTypeName(party)}`;
     }
 
     function countPeople(party) { return party.photos.filter(p => isPersonKind(p.kind)).length; }
 
-    function createParty(type) {
-      const party = { id: uid('party'), type, photos: [] };
+    function orderedPhotos(party) {
+      const priority = { vehicle: 0, driver: 1, passenger: 2, pedestrian: 0, companion: 1 };
+      return party.photos
+        .map((photo, index) => ({ photo, index }))
+        .sort((a, b) => (priority[a.photo.kind] ?? 9) - (priority[b.photo.kind] ?? 9) || a.index - b.index)
+        .map(item => item.photo);
+    }
+
+    function createParty(openFlow = true) {
+      const party = { id: uid('party'), type: 'auto', photos: [] };
       state.parties.push(party);
       state.currentPartyId = party.id;
       renderHome();
-      showScreen('flowScreen');
-      renderFlow();
-      // 保持在使用者點擊事件內直接開啟相機，避免 iPhone Safari 阻擋非同步觸發。
-      if (type === 'vehicle') requestCapture('vehicle', '車輛');
-      else requestCapture('pedestrian', '行人');
+      if (openFlow) {
+        showScreen('flowScreen');
+        renderFlow();
+      }
+      return party;
     }
 
     function renderHome() {
@@ -453,7 +481,7 @@
         head.innerHTML = `
           <div class="party-badge">第${index + 1}方</div>
           <div class="party-name">
-            <strong>${party.type === 'vehicle' ? '車輛方' : '行人方'}</strong>
+            <strong>${partyTypeName(party)}</strong>
             <span>${party.photos.length} 張照片・${countPeople(party)} 人</span>
           </div>
           <div class="party-actions">
@@ -464,7 +492,7 @@
         if (!party.photos.length) {
           row.innerHTML = '<div class="hint">尚未完成拍攝</div>';
         } else {
-          party.photos.forEach(photo => row.appendChild(makeThumb(photo)));
+          orderedPhotos(party).forEach(photo => row.appendChild(makeThumb(photo)));
         }
         card.append(head, row);
         els.partyList.appendChild(card);
@@ -488,15 +516,51 @@
     }
 
     function renderFlow() {
-      const party = currentParty();
-      if (!party) { showScreen('homeScreen'); return; }
+      let party = currentParty();
+      if (!party) party = createParty(false);
       const index = state.parties.findIndex(p => p.id === party.id);
       els.flowStepNum.textContent = index + 1;
-      els.flowTitle.textContent = partyTitle(index, party);
-      els.flowMiniPreview.innerHTML = '';
-      party.photos.forEach(photo => els.flowMiniPreview.appendChild(makeThumb(photo)));
+      els.flowTitle.textContent = `第${index + 1}方・快速拍攝`;
       els.flowDesc.textContent = flowDescription(party);
+
+      els.flowPartySwitcher.innerHTML = '';
+      state.parties.forEach((item, partyIndex) => {
+        const chip = document.createElement('button');
+        chip.className = `party-chip${item.id === party.id ? ' active' : ''}`;
+        chip.textContent = `${partyIndex + 1}方`;
+        chip.addEventListener('click', () => {
+          state.currentPartyId = item.id;
+          renderFlow();
+        });
+        els.flowPartySwitcher.appendChild(chip);
+      });
+      const addChip = document.createElement('button');
+      addChip.className = 'party-chip add';
+      addChip.textContent = '＋下一方';
+      addChip.addEventListener('click', () => createParty(true));
+      els.flowPartySwitcher.appendChild(addChip);
+
+      els.flowMiniPreview.innerHTML = '';
+      orderedPhotos(party).forEach(photo => els.flowMiniPreview.appendChild(makeThumb(photo)));
       els.flowActions.innerHTML = '';
+
+      const quickGrid = document.createElement('div');
+      quickGrid.className = 'quick-capture-grid';
+      const addQuickButton = (text, cls, handler) => {
+        const btn = document.createElement('button');
+        btn.className = `btn ${cls || ''}`;
+        btn.textContent = text;
+        btn.addEventListener('click', handler);
+        quickGrid.appendChild(btn);
+      };
+
+      const passengerNo = party.photos.filter(p => p.kind === 'passenger').length + 1;
+      const pedestrianNo = party.photos.filter(p => p.kind === 'pedestrian').length + 1;
+      addQuickButton('🚗 車輛', 'primary', () => requestCapture('vehicle', '車輛'));
+      addQuickButton('👤 駕駛', 'primary', () => requestCapture('driver', '駕駛'));
+      addQuickButton(`👥 乘客${passengerNo > 1 ? passengerNo : ''}`, '', () => requestCapture('passenger', `乘客${passengerNo}`));
+      addQuickButton(`🚶 行人${pedestrianNo > 1 ? pedestrianNo : ''}`, 'warning', () => requestCapture('pedestrian', `行人${pedestrianNo}`));
+      els.flowActions.appendChild(quickGrid);
 
       const addButton = (text, cls, handler) => {
         const btn = document.createElement('button');
@@ -506,67 +570,33 @@
         els.flowActions.appendChild(btn);
       };
 
-      if (party.type === 'vehicle') {
-        const hasVehicle = party.photos.some(p => p.kind === 'vehicle');
-        const hasDriver = party.photos.some(p => p.kind === 'driver');
-        if (!hasVehicle) {
-          addButton('📷 拍攝車輛', 'primary', () => requestCapture('vehicle', '車輛'));
-        } else if (!hasDriver) {
-          addButton('📷 下一步：拍攝駕駛', 'primary', () => requestCapture('driver', '駕駛'));
-          addButton('重新拍攝車輛', 'danger', () => replaceFirstKind(party, 'vehicle'));
-        } else {
-          const passengerNo = party.photos.filter(p => p.kind === 'passenger').length + 1;
-          addButton(`➕ 新增乘客 ${passengerNo}`, 'primary', () => requestCapture('passenger', `乘客${passengerNo}`));
-          addButton('➡️ 完成本方，新增下一方', 'success', finishCurrentParty);
-          addButton('檢查本方照片', '', () => { showScreen('overviewScreen'); renderOverview(); });
-        }
-      } else {
-        const hasPedestrian = party.photos.some(p => p.kind === 'pedestrian');
-        if (!hasPedestrian) {
-          addButton('📷 拍攝行人', 'primary', () => requestCapture('pedestrian', '行人'));
-        } else {
-          const companionNo = party.photos.filter(p => p.kind === 'companion').length + 1;
-          addButton(`➕ 新增同行人 ${companionNo}`, 'primary', () => requestCapture('companion', `同行人${companionNo}`));
-          addButton('➡️ 完成本方，新增下一方', 'success', finishCurrentParty);
-          addButton('檢查本方照片', '', () => { showScreen('overviewScreen'); renderOverview(); });
-        }
-      }
-
-      if (party.photos.length) {
-        addButton('返回全部拍攝內容', 'ghost', () => { renderHome(); showScreen('homeScreen'); });
-      }
+      addButton('＋ 新增下一方', 'success', () => createParty(true));
+      if (party.photos.length) addButton('檢查全部照片', '', () => { showScreen('overviewScreen'); renderOverview(); });
+      addButton('返回全部方別', 'ghost', () => { renderHome(); showScreen('homeScreen'); });
     }
 
     function flowDescription(party) {
-      if (party.type === 'vehicle') {
-        const hasVehicle = party.photos.some(p => p.kind === 'vehicle');
-        const hasDriver = party.photos.some(p => p.kind === 'driver');
-        if (!hasVehicle) return '請先拍攝本方車輛。';
-        if (!hasDriver) return '車輛已完成，接著拍攝駕駛並輸入電話。';
-        return '駕駛已完成。如有乘客可繼續新增；沒有乘客則完成本方。';
-      }
-      if (!party.photos.some(p => p.kind === 'pedestrian')) return '請拍攝本方行人，接著輸入電話。';
-      return '行人已完成。如有同行人可繼續新增；沒有同行人則完成本方。';
+      if (!party.photos.length) return '可先拍車，也可先拍人；直接點選下方類型。';
+      const vehicles = party.photos.filter(p => p.kind === 'vehicle').length;
+      const drivers = party.photos.filter(p => p.kind === 'driver').length;
+      const passengers = party.photos.filter(p => p.kind === 'passenger').length;
+      const pedestrians = party.photos.filter(p => p.kind === 'pedestrian').length;
+      const parts = [];
+      if (vehicles) parts.push(`車輛${vehicles}`);
+      if (drivers) parts.push(`駕駛${drivers}`);
+      if (passengers) parts.push(`乘客${passengers}`);
+      if (pedestrians) parts.push(`行人${pedestrians}`);
+      return `目前已有：${parts.join('、')}。拍攝順序不限，可隨時切換方別。`;
     }
 
     async function finishCurrentParty() {
-      const party = currentParty();
-      if (!party) return;
-      const ok = await validateParty(party, false);
-      if (!ok) return;
       renderHome();
       showScreen('homeScreen');
-      showToast('本方已完成，可新增下一方或直接合成');
     }
 
     async function validateParty(party, showAlert = true) {
-      if (party.type === 'vehicle') {
-        if (!party.photos.some(p => p.kind === 'vehicle') || !party.photos.some(p => p.kind === 'driver')) {
-          if (showAlert) showToast('車輛方至少需要車輛與駕駛照片');
-          return false;
-        }
-      } else if (!party.photos.some(p => p.kind === 'pedestrian')) {
-        if (showAlert) showToast('行人方至少需要一張行人照片');
+      if (!party.photos.length) {
+        if (showAlert) showToast('有方別尚未拍攝照片');
         return false;
       }
       const missing = party.photos.find(p => isPersonKind(p.kind) && !String(p.phone || '').trim());
@@ -628,7 +658,7 @@
           state.currentPartyId = party.id;
           showScreen('flowScreen');
           renderFlow();
-          showToast('車輛照片已加入');
+          showToast('照片已加入');
         }
       } catch (err) {
         console.error(err);
@@ -755,7 +785,7 @@
         box.innerHTML = `<div class="overview-party-head"><strong>${partyTitle(partyIndex, party)}</strong><span class="hint" style="margin:0">${party.photos.length} 張</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'photo-grid';
-        party.photos.forEach((photo, photoIndex) => {
+        orderedPhotos(party).forEach((photo, photoIndex) => {
           const item = document.createElement('article');
           item.className = 'photo-item';
           item.innerHTML = `
@@ -811,8 +841,9 @@
     }
 
     async function canExport() {
-      if (!state.parties.length) { showToast('尚未拍攝任何照片'); return false; }
-      for (const party of state.parties) {
+      const completedParties = state.parties.filter(party => party.photos.length > 0);
+      if (!completedParties.length) { showToast('尚未拍攝任何照片'); return false; }
+      for (const party of completedParties) {
         if (!(await validateParty(party, true))) return false;
       }
       return true;
@@ -820,6 +851,10 @@
 
     async function openExport() {
       if (!(await canExport())) return;
+      // 快速操作時可能誤按新增方別；輸出前自動略過沒有照片的空白方別。
+      state.parties = state.parties.filter(party => party.photos.length > 0);
+      if (!partyById(state.currentPartyId)) state.currentPartyId = state.parties[0]?.id || null;
+      renderHome();
       showScreen('exportScreen');
       await generateComposite();
     }
@@ -850,17 +885,15 @@
     }
 
     async function composeParties(parties) {
-      const canvasWidth = 2400;
       const gap = 16;
       const outer = 20;
-      const rowLabelW = 96;
-      const rowLabelGap = 14;
-      // 以所有當事方中最多照片數作為固定欄數：
-      // 例如第一方 3 張、第二方 2 張，第二列會保留第 3 欄空白，符合「一方一列」的排列。
+      // 每一組固定為「窄標示欄＋3:4直式照片」，不因照片數量變成橫式格子。
       const maxCols = Math.max(1, ...parties.map(party => party.photos.length));
-      const cellAreaW = canvasWidth - outer * 2 - rowLabelW - rowLabelGap - gap * (maxCols - 1);
-      const cellW = cellAreaW / maxCols;
-      const rowH = Math.max(360, Math.min(1120, Math.round(cellW * .76)));
+      const labelW = 96;
+      const imageW = 720;
+      const rowH = 960;
+      const groupW = labelW + imageW;
+      const canvasWidth = outer * 2 + groupW * maxCols + gap * (maxCols - 1);
       const canvasHeight = outer * 2 + rowH * parties.length + gap * (parties.length - 1);
       const canvas = document.createElement('canvas');
       canvas.width = canvasWidth;
@@ -874,35 +907,33 @@
       let y = outer;
       for (let r = 0; r < parties.length; r++) {
         const party = parties[r];
-        const n = party.photos.length;
-        const rowLabelX = outer;
-        drawRowLabel(ctx, `${r + 1}方`, rowLabelX, y, rowLabelW, rowH);
-        const photoStartX = outer + rowLabelW + rowLabelGap;
+        const photos = orderedPhotos(party);
+        const n = photos.length;
 
         for (let i = 0; i < n; i++) {
-          const photo = party.photos[i];
-          const x = photoStartX + i * (cellW + gap);
-          const labelText = labels[photo.kind] || photo.label || '照片';
-          const sideLabelW = Math.max(72, Math.min(110, Math.round(cellW * 0.18)));
-          const imageX = x + sideLabelW;
-          const imageW = cellW - sideLabelW;
+          const photo = photos[i];
+          const x = outer + i * (groupW + gap);
+          const imageX = x + labelW;
+          const labelLines = exportLabelLines(photo, r, i);
           const img = await loadImage(photo.dataUrl);
 
-          ctx.fillStyle = '#f7f7f8';
-          ctx.fillRect(x, y, cellW, rowH);
-          ctx.strokeStyle = '#d7d7d7';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 1, y + 1, cellW - 2, rowH - 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x, y, groupW, rowH);
+          ctx.strokeStyle = '#222831';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 1.5, y + 1.5, groupW - 3, rowH - 3);
 
-          ctx.fillStyle = '#eef1f5';
-          ctx.fillRect(x, y, sideLabelW, rowH);
-          ctx.strokeStyle = '#d7d7d7';
-          ctx.strokeRect(x + 1, y + 1, sideLabelW - 2, rowH - 2);
-          drawStackedLabel(ctx, labelText, x, y, sideLabelW, rowH, '#20242c');
+          ctx.fillStyle = '#f2f3f5';
+          ctx.fillRect(x, y, labelW, rowH);
+          ctx.strokeStyle = '#222831';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 1.5, y + 1.5, labelW - 3, rowH - 3);
+          drawVerticalLabelLines(ctx, labelLines, x, y, labelW, rowH);
 
           drawImageFit(ctx, img, imageX, y, imageW, rowH);
-          ctx.strokeStyle = '#d7d7d7';
-          ctx.strokeRect(imageX + 1, y + 1, imageW - 2, rowH - 2);
+          ctx.strokeStyle = '#222831';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(imageX + 1.5, y + 1.5, imageW - 3, rowH - 3);
 
           if (isPersonKind(photo.kind) && photo.phone) {
             drawPhoneOverlay(ctx, photo, imageX, y, imageW, rowH);
@@ -911,6 +942,12 @@
         y += rowH + gap;
       }
       return canvas;
+    }
+
+    function exportLabelLines(photo, partyIndex, photoIndex) {
+      const role = labels[photo.kind] || photo.label || '照片';
+      if (photoIndex === 0) return [`${partyIndex + 1}方`, role];
+      return [role];
     }
 
     function drawImageFit(ctx, img, x, y, w, h) {
@@ -922,41 +959,40 @@
       const dx = x + (w - dw) / 2;
       const dy = y + (h - dh) / 2;
       ctx.save();
-      ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-      ctx.fillStyle = '#111111'; ctx.fillRect(x, y, w, h);
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.fillStyle = '#111111';
+      ctx.fillRect(x, y, w, h);
       ctx.drawImage(img, dx, dy, dw, dh);
       ctx.restore();
     }
 
-    function drawRowLabel(ctx, text, x, y, w, h) {
-      ctx.save();
-      ctx.fillStyle = '#ecf1f8';
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = '#cfd8e5';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
-      drawStackedLabel(ctx, text, x, y, w, h, '#233247', true);
-      ctx.restore();
-    }
-
-    function drawStackedLabel(ctx, text, x, y, w, h, color = '#222', bold = false) {
-      const chars = String(text || '').split('');
-      const count = Math.max(1, chars.length);
+    function drawVerticalLabelLines(ctx, lines, x, y, w, h) {
+      const groups = lines.map(line => String(line || '').split(''));
+      const spacer = Math.min(28, h * 0.035);
+      const totalChars = groups.reduce((sum, chars) => sum + chars.length, 0);
+      const groupGaps = Math.max(0, groups.length - 1);
       const maxFontByWidth = w * 0.52;
-      const maxFontByHeight = h / (count + 0.9);
-      const fontSize = Math.max(24, Math.min(64, maxFontByWidth, maxFontByHeight));
-      const step = fontSize * 1.12;
-      const totalH = step * (count - 1);
+      const maxFontByHeight = (h - spacer * groupGaps) / Math.max(1, totalChars * 1.15);
+      const fontSize = Math.max(24, Math.min(62, maxFontByWidth, maxFontByHeight));
+      const step = fontSize * 1.15;
+      const totalHeight = totalChars * step + spacer * groupGaps - step;
+      let cy = y + (h - totalHeight) / 2 + fontSize / 2;
+
       ctx.save();
-      ctx.fillStyle = color;
-      ctx.font = `${bold ? '800' : '700'} ${fontSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`;
+      ctx.fillStyle = '#20242c';
+      ctx.font = `800 ${fontSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const cx = x + w / 2;
-      let cy = y + h / 2 - totalH / 2;
-      chars.forEach(ch => {
-        ctx.fillText(ch, cx, cy);
-        cy += step;
+
+      groups.forEach((chars, groupIndex) => {
+        chars.forEach(ch => {
+          ctx.fillText(ch, cx, cy);
+          cy += step;
+        });
+        if (groupIndex < groups.length - 1) cy += spacer;
       });
       ctx.restore();
     }
@@ -1090,8 +1126,15 @@
       });
     }
 
-    els.addVehiclePartyBtn.addEventListener('click', () => createParty('vehicle'));
-    els.addPedestrianPartyBtn.addEventListener('click', () => createParty('pedestrian'));
+    els.addVehiclePartyBtn.addEventListener('click', () => createParty(true));
+    els.addPedestrianPartyBtn.addEventListener('click', () => {
+      if (!state.parties.length) createParty(true);
+      else {
+        if (!state.currentPartyId || !partyById(state.currentPartyId)) state.currentPartyId = state.parties[state.parties.length - 1].id;
+        showScreen('flowScreen');
+        renderFlow();
+      }
+    });
     els.overviewBtn.addEventListener('click', () => { renderOverview(); showScreen('overviewScreen'); });
     els.goExportBtn.addEventListener('click', openExport);
     els.overviewExportBtn.addEventListener('click', openExport);
